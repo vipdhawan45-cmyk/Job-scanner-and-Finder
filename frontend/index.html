@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JobMatch AI — find jobs that fit your resume</title>
+  <meta name="description" content="Upload your resume and get ranked job matches from LinkedIn and top job boards, with skill-gap insights." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M9 17l5 5 9-11' stroke='white' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="JobMatch AI home">
+      <span class="logo">✓</span> JobMatch <span class="brand-ai">AI</span>
+    </a>
+    <nav class="topnav">
+      <button class="link-btn" id="savedToggle" type="button" hidden>★ Saved <span id="savedCount" class="pill">0</span></button>
+      <button class="link-btn" id="restartBtn" type="button" hidden>New resume</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Step 1: upload -->
+    <section id="uploadView" class="hero">
+      <div class="hero-copy">
+        <h1>Find the jobs your resume is <em>actually</em> built for.</h1>
+        <p class="lead">Upload your resume. We read your skills and experience, search LinkedIn and leading job boards, and rank every opening by how well it fits you — with the reasons and the skill gaps.</p>
+        <ul class="steps">
+          <li><span>1</span> Upload PDF, DOCX or TXT</li>
+          <li><span>2</span> Review the skills we found</li>
+          <li><span>3</span> Get ranked, explained matches</li>
+        </ul>
+      </div>
+
+      <div class="card upload-card">
+        <div class="tabs" role="tablist">
+          <button role="tab" class="tab active" data-tab="file" aria-selected="true">Upload file</button>
+          <button role="tab" class="tab" data-tab="text" aria-selected="false">Paste text</button>
+        </div>
+        <form id="uploadForm">
+          <div class="tab-panel" data-panel="file">
+            <label id="dropzone" class="dropzone" for="fileInput">
+              <input id="fileInput" type="file" accept=".pdf,.docx,.txt,.md" hidden />
+              <div class="dz-icon" aria-hidden="true">⬆</div>
+              <strong id="dzTitle">Drop your resume here</strong>
+              <span class="muted" id="dzHint">or click to browse · PDF, DOCX, TXT · max 5 MB</span>
+            </label>
+          </div>
+          <div class="tab-panel" data-panel="text" hidden>
+            <textarea id="resumeText" rows="10" placeholder="Paste the text of your resume…"></textarea>
+          </div>
+          <button class="btn primary block" id="analyzeBtn" type="submit" disabled>Analyze my resume</button>
+          <p class="fine">Your resume is processed in memory only and discarded after an hour. It is never stored on disk.</p>
+          <div id="uploadError" class="alert error" hidden></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Step 2+3: profile + results -->
+    <section id="resultsView" class="workspace" hidden>
+      <aside class="sidebar">
+        <div class="card">
+          <h2 class="card-title">Your profile</h2>
+          <div class="stat-row">
+            <label class="stat">
+              <span class="muted">Experience (yrs)</span>
+              <input id="yearsInput" type="number" min="0" max="50" step="0.5" />
+            </label>
+            <div class="stat"><span class="muted">Level</span><strong id="seniority">—</strong></div>
+          </div>
+          <div id="titlesWrap" class="field" hidden>
+            <span class="label">Roles detected</span>
+            <div id="titles" class="chips"></div>
+          </div>
+          <div class="field">
+            <span class="label">Skills <span class="muted">(click × to remove)</span></span>
+            <div id="skills" class="chips"></div>
+            <form id="addSkillForm" class="inline-form">
+              <input id="addSkillInput" placeholder="Add a skill, e.g. GraphQL" maxlength="40" />
+              <button class="btn small" type="submit">Add</button>
+            </form>
+          </div>
+        </div>
+
+        <form class="card" id="searchForm">
+          <h2 class="card-title">Search</h2>
+          <label class="field">
+            <span class="label">Keywords <span class="muted">(optional)</span></span>
+            <input id="keywordsInput" maxlength="120" />
+            <span class="muted small" id="queryHint"></span>
+          </label>
+          <label class="field">
+            <span class="label">Location</span>
+            <input id="locationInput" placeholder="e.g. Bengaluru, London — blank for anywhere" maxlength="80" />
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="remoteInput" /> <span class="track"></span> Remote only
+          </label>
+          <fieldset class="field">
+            <legend class="label">Sources</legend>
+            <div id="sourcesList" class="sources"></div>
+          </fieldset>
+          <button class="btn primary block" type="submit" id="searchBtn">Find matching jobs</button>
+        </form>
+      </aside>
+
+      <div class="results">
+        <div class="results-head">
+          <div>
+            <h2 id="resultsTitle">Matching jobs</h2>
+            <p id="resultsMeta" class="muted"></p>
+          </div>
+          <div class="controls">
+            <input id="filterInput" type="search" placeholder="Filter results…" aria-label="Filter results" />
+            <select id="sortSelect" aria-label="Sort">
+              <option value="score">Best match</option>
+              <option value="date">Newest</option>
+            </select>
+          </div>
+        </div>
+        <div id="sourceStatus" class="source-status"></div>
+        <div id="demoNotice" class="alert info" hidden></div>
+        <div id="searchError" class="alert error" hidden></div>
+        <div id="jobList" class="job-list" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <template id="jobTpl">
+    <article class="card job">
+      <div class="score" role="img"><svg viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15.9"/><circle class="fg" cx="18" cy="18" r="15.9"/></svg><span class="score-num"></span></div>
+      <div class="job-body">
+        <div class="job-top">
+          <div>
+            <h3 class="job-title"></h3>
+            <p class="job-company"></p>
+          </div>
+          <button class="icon-btn save" type="button" aria-label="Save job">☆</button>
+        </div>
+        <div class="meta"></div>
+        <ul class="reasons"></ul>
+        <div class="skill-rows"></div>
+        <details class="desc"><summary>Description &amp; score breakdown</summary><div class="breakdown"></div><p class="desc-text"></p></details>
+        <div class="job-actions"><a class="btn primary small apply" target="_blank" rel="noopener noreferrer">View &amp; apply ↗</a></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

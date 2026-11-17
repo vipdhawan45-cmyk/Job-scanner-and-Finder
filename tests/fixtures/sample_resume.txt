@@ -1,0 +1,21 @@
+Priya Sharma
+Senior Software Engineer | Location: Bengaluru, India
+
+SUMMARY
+Backend-focused Software Engineer with 6 years of experience building scalable Python
+microservices and REST APIs. Comfortable across the stack and with ML model deployment.
+
+EXPERIENCE
+Senior Software Engineer, Acme Payments — Jan 2022 - Present
+- Built FastAPI and Django services on AWS (EC2, S3, Lambda) handling 20k req/s
+- Containerised services with Docker and Kubernetes; CI/CD with GitHub Actions
+- PostgreSQL and Redis tuning; event streaming with Kafka
+Software Engineer, DataWorks — Jun 2019 - Dec 2021
+- Built data pipelines with Airflow and Pandas; trained scikit-learn models for churn
+- React dashboards for internal tools
+
+SKILLS
+Python, FastAPI, Django, PostgreSQL, Redis, Docker, Kubernetes, AWS, Kafka, React, Machine Learning, Git, Agile
+
+EDUCATION
+B.Tech in Computer Science, 2019
