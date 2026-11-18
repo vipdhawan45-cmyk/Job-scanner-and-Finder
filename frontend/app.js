@@ -23,13 +23,28 @@ function persistSaved() {
 }
 
 /* ---------- helpers ---------- */
+const FRIENDLY_STATUS = {
+  413: "That file is too large. Please upload a file under 8 MB.",
+  429: "Too many requests — please wait a minute and try again.",
+  500: "Something went wrong on the server. Please try again.",
+  502: "The server restarted while handling your request (it may have been waking up). Wait 30 seconds and try again.",
+  503: "The server is starting up. Wait 30 seconds and try again.",
+  504: "The server took too long to respond. Please try again.",
+};
+
 async function api(path, options = {}) {
-  const res = await fetch(path, options);
+  let res;
+  try {
+    res = await fetch(path, options);
+  } catch {
+    throw new Error("Couldn't reach the server. Check your internet connection and try again.");
+  }
   let body = null;
-  try { body = await res.json(); } catch { /* non-JSON */ }
+  try { body = await res.json(); } catch { /* non-JSON (e.g. a proxy error page) */ }
   if (!res.ok) {
     const detail = body && body.detail;
-    throw new Error(typeof detail === "string" ? detail : `Request failed (${res.status})`);
+    if (typeof detail === "string") throw new Error(detail);
+    throw new Error(FRIENDLY_STATUS[res.status] || `Request failed (${res.status}). Please try again.`);
   }
   return body;
 }
@@ -72,7 +87,7 @@ $("#resumeText").addEventListener("input", updateAnalyzeBtn);
 
 function pickFile(file) {
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { showError($("#uploadError"), "That file is larger than 5 MB."); return; }
+  if (file.size > 8 * 1024 * 1024) { showError($("#uploadError"), "That file is larger than 8 MB."); return; }
   selectedFile = file;
   $("#dropzone").classList.add("has-file");
   $("#dzTitle").textContent = file.name;
@@ -123,6 +138,10 @@ function renderProfile(data) {
   $("#keywordsInput").placeholder = data.suggested_queries.join(" · ");
   $("#queryHint").textContent = "Leave blank to search using your detected roles and skills.";
   if (p.location && !$("#locationInput").value) $("#locationInput").value = p.location;
+  $("#profileWarnings").replaceChildren(...(p.warnings || []).map((w) => {
+    const d = document.createElement("div"); d.className = "alert warn"; d.textContent = w; return d;
+  }));
+  if (!data.suggested_queries.length) $("#keywordsInput").placeholder = "e.g. Site Engineer";
   renderSkills();
 }
 
@@ -183,6 +202,7 @@ async function loadSources() {
       label.append(cb, text);
       return label;
     }));
+    $("#coverageNotice").hidden = !data.limited_coverage;
     if (data.demo_mode) {
       const n = $("#demoNotice");
       n.textContent = "Demo mode: showing bundled sample listings from fictional companies. Configure live sources to search real jobs.";
@@ -218,8 +238,9 @@ async function runSearch() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     state.jobs = data.jobs;
+    const weak = data.hidden_weak ? ` · ${data.hidden_weak} weak matches hidden` : "";
     $("#resultsMeta").textContent =
-      `${data.jobs.length} best of ${data.total_found} jobs · searched “${data.queries.join("”, “")}” · ${(data.elapsed_ms / 1000).toFixed(1)}s`;
+      `${data.jobs.length} good matches from ${data.total_found} jobs${weak} · searched “${data.queries.join("”, “")}” · ${(data.elapsed_ms / 1000).toFixed(1)}s`;
     renderSourceStatus(data.source_status);
     renderJobs();
   } catch (err) {
@@ -266,7 +287,7 @@ function renderJobs() {
 
   if (!jobs.length) {
     list.innerHTML = `<div class="card empty">${state.showSaved ? "No saved jobs yet — tap ☆ on a job to save it."
-      : "No matching jobs. Try removing the location, turning off “Remote only”, or using broader keywords."}</div>`;
+      : "No good matches found. Try clearing the location, turning off “Remote only”, or typing a different job title in Keywords."}</div>`;
     return;
   }
   list.replaceChildren(...jobs.map(jobCard));

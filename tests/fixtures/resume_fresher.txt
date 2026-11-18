@@ -1,0 +1,5 @@
+Rahul Singh
+B.Tech Computer Science (2020 - 2024), NIT Raipur, CGPA 8.1
+Projects: Built a movie recommendation system using Python, Pandas and scikit-learn. Developed a MERN e-commerce site (MongoDB, Express, React, Node).
+Internship: Web Development Intern, StartupX (May 2023 - Jul 2023) — React, REST APIs
+Skills: Python, Java, C++, SQL, React, Git, Data Structures and Algorithms

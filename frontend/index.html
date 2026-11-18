@@ -28,7 +28,7 @@
         <h1>Find the jobs your resume is <em>actually</em> built for.</h1>
         <p class="lead">Upload your resume. We read your skills and experience, search LinkedIn and leading job boards, and rank every opening by how well it fits you — with the reasons and the skill gaps.</p>
         <ul class="steps">
-          <li><span>1</span> Upload PDF, DOCX or TXT</li>
+          <li><span>1</span> Upload PDF, DOCX, TXT or a photo</li>
           <li><span>2</span> Review the skills we found</li>
           <li><span>3</span> Get ranked, explained matches</li>
         </ul>
@@ -42,10 +42,10 @@
         <form id="uploadForm">
           <div class="tab-panel" data-panel="file">
             <label id="dropzone" class="dropzone" for="fileInput">
-              <input id="fileInput" type="file" accept=".pdf,.docx,.txt,.md" hidden />
+              <input id="fileInput" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp" hidden />
               <div class="dz-icon" aria-hidden="true">⬆</div>
               <strong id="dzTitle">Drop your resume here</strong>
-              <span class="muted" id="dzHint">or click to browse · PDF, DOCX, TXT · max 5 MB</span>
+              <span class="muted" id="dzHint">or click to browse · PDF, DOCX, TXT or a photo (JPG/PNG) · max 8 MB</span>
             </label>
           </div>
           <div class="tab-panel" data-panel="text" hidden>
@@ -63,6 +63,7 @@
       <aside class="sidebar">
         <div class="card">
           <h2 class="card-title">Your profile</h2>
+          <div id="profileWarnings"></div>
           <div class="stat-row">
             <label class="stat">
               <span class="muted">Experience (yrs)</span>
@@ -121,6 +122,7 @@
           </div>
         </div>
         <div id="sourceStatus" class="source-status"></div>
+        <div id="coverageNotice" class="alert warn" hidden>Only free remote/Europe job boards are connected, so local jobs (e.g. in India) and LinkedIn listings are missing. The site owner can add a JSearch API key to fix this.</div>
         <div id="demoNotice" class="alert info" hidden></div>
         <div id="searchError" class="alert error" hidden></div>
         <div id="jobList" class="job-list" aria-live="polite"></div>

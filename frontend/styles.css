@@ -95,6 +95,8 @@ textarea { resize: vertical; min-height: 180px; }
 .alert { padding: 10px 14px; border-radius: 10px; margin: 12px 0; font-size: .92rem; }
 .alert.error { background: var(--bad-soft); color: var(--bad); }
 .alert.info { background: var(--primary-soft); color: var(--text); }
+.alert.warn { background: var(--warn-soft); color: var(--warn); }
+#profileWarnings .alert { margin: 0 0 14px; font-size: .84rem; }
 .fine { font-size: .78rem; color: var(--muted); text-align: center; margin: 10px 0 0; }
 
 /* Hero / upload */

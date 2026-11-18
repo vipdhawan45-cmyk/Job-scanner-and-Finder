@@ -1,6 +1,7 @@
 """JobMatch AI — FastAPI application (API + static frontend)."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -16,7 +17,7 @@ from pydantic import BaseModel, Field
 from .aggregator import Aggregator
 from .config import settings
 from .matcher import build_queries, filter_jobs, rank_jobs
-from .resume_parser import Profile, ResumeError, build_profile, parse_resume
+from .resume_parser import MAX_RESUME_BYTES, Profile, ResumeError, build_profile, parse_resume
 from .sources import SearchQuery
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -74,7 +75,14 @@ def health():
 
 @app.get("/api/sources")
 def sources():
-    return {"sources": aggregator.list_sources(), "demo_mode": settings.demo_mode}
+    listed = aggregator.list_sources()
+    enabled = {s["name"] for s in listed if s["enabled"]}
+    return {
+        "sources": listed,
+        "demo_mode": settings.demo_mode,
+        # Without JSearch/Adzuna only free remote/EU boards are searched: tell the user.
+        "limited_coverage": not settings.demo_mode and not (enabled & {"jsearch", "adzuna", "linkedin"}),
+    }
 
 
 @app.post("/api/resume")
@@ -82,14 +90,18 @@ async def upload_resume(request: Request, file: UploadFile | None = File(None), 
     rate_limit(request)
     try:
         if file is not None and file.filename:
-            data = await file.read()
-            profile = parse_resume(file.filename, data)
+            data = await file.read(MAX_RESUME_BYTES + 1)
+            # Parsing/OCR is CPU-bound: run it in a worker thread so the server stays responsive.
+            profile = await asyncio.to_thread(parse_resume, file.filename, data)
         elif text and len(text.strip()) >= 50:
-            profile = build_profile(text.strip()[:60000])
+            profile = await asyncio.to_thread(build_profile, text.strip()[:60000])
         else:
             raise ResumeError("Upload a resume file or paste at least a few lines of resume text.")
     except ResumeError as exc:
         raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:  # never let one odd file take the request down with a 500
+        logging.getLogger("jobfinder").exception("resume parsing failed")
+        raise HTTPException(422, "We couldn't read this file. Try saving it again as PDF or DOCX.") from exc
     pid = profiles.put(profile)
     return {"profile_id": pid, "profile": profile.public(), "suggested_queries": build_queries(profile, profile.skills)}
 
@@ -116,17 +128,21 @@ async def search_jobs(req: SearchRequest, request: Request):
     skills = [s.strip() for s in (req.skills if req.skills is not None else profile.skills) if s.strip()][:60]
 
     query_strings = build_queries(profile, skills, req.keywords)
+    if not query_strings:
+        raise HTTPException(422, "We couldn't work out which roles to search for. Type a job title in Keywords.")
     queries = [SearchQuery(q, req.location.strip(), req.remote_only, 50) for q in query_strings]
     started = time.perf_counter()
     jobs, status = await aggregator.search(queries, req.sources)
     jobs = filter_jobs(jobs, req.location, req.remote_only)
-    ranked = rank_jobs(profile, jobs, skills)[: req.limit]
+    ranked = await asyncio.to_thread(rank_jobs, profile, jobs, skills)
+    good = [r for r in ranked if r.score >= settings.min_score]
     return {
         "queries": query_strings,
         "total_found": len(jobs),
+        "hidden_weak": len(ranked) - len(good),
         "elapsed_ms": int((time.perf_counter() - started) * 1000),
         "source_status": status,
-        "jobs": [r.to_dict() for r in ranked],
+        "jobs": [r.to_dict() for r in good[: req.limit]],
     }
 
 

@@ -22,7 +22,10 @@ class Settings:
 
     # Bundled sample listings — used when DEMO_MODE is on or every live source fails.
     demo_mode: bool = _bool("DEMO_MODE")
-    sample_fallback: bool = _bool("SAMPLE_FALLBACK", True)
+    # Off by default: fictional listings shown to real users look like wrong recommendations.
+    sample_fallback: bool = _bool("SAMPLE_FALLBACK", False)
+    # Hide matches scoring below this (0-100); weak matches are noise.
+    min_score: float = float(os.getenv("MIN_SCORE", "30"))
 
     # Optional sentence-transformer embeddings for semantic matching.
     use_embeddings: bool = _bool("USE_EMBEDDINGS")

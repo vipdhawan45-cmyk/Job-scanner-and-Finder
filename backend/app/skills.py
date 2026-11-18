@@ -106,14 +106,72 @@ SKILL_ALIASES: dict[str, list[str]] = {
     "Sales": ["sales", "business development", "b2b sales", "crm", "salesforce"],
     "Communication": ["communication", "presentation skills", "public speaking"],
     "Leadership": ["leadership", "team lead", "mentoring", "people management"],
-    "Finance": ["financial analysis", "financial modeling", "accounting", "fp&a"],
+    "Finance": ["financial analysis", "financial modeling", "fp&a", "budgeting", "forecasting"],
+    "Data Structures & Algorithms": ["data structures", "algorithms", "dsa"],
+    "MERN Stack": ["mern"],
+    "Microsoft Office": ["ms office", "microsoft office", "ms word", "powerpoint", "ms powerpoint"],
+    # Civil / construction
+    "AutoCAD": ["autocad", "auto cad"],
+    "STAAD Pro": ["staad pro", "staad.pro", "staad"],
+    "Revit": ["revit", "bim"],
+    "MS Project": ["ms project", "microsoft project"],
+    "Primavera": ["primavera", "p6"],
+    "Quantity Surveying": ["quantity surveying", "quantity surveyor", "boq", "bill of quantities", "rate analysis"],
+    "Estimation & Costing": ["estimation", "costing", "cost estimation"],
+    "Site Supervision": ["site supervision", "site execution", "site management"],
+    "Construction Management": ["construction management", "construction", "contractor management"],
+    "Surveying": ["surveying", "total station", "land survey"],
+    "Quality Control": ["quality control", "quality assurance", "qa/qc", "qc"],
+    # Mechanical / electrical / manufacturing
+    "SolidWorks": ["solidworks", "solid works"],
+    "CATIA": ["catia"],
+    "ANSYS": ["ansys", "finite element", "fea"],
+    "CNC": ["cnc", "machining"],
+    "GD&T": ["gd&t"],
+    "PLC / SCADA": ["plc", "scada"],
+    "MATLAB": ["matlab", "simulink"],
+    "Lean / Six Sigma": ["six sigma", "lean manufacturing", "kaizen", "5s"],
+    "Production Planning": ["production planning", "ppc"],
+    "Maintenance": ["preventive maintenance", "maintenance"],
+    # Accounting / finance ops
+    "Accounting": ["accounting", "bookkeeping", "general ledger", "accounts payable", "accounts receivable"],
+    "Tally": ["tally", "tally erp", "tally prime"],
+    "GST & Taxation": ["gst", "taxation", "income tax", "tds"],
+    "Auditing": ["audit", "auditing", "internal audit"],
+    "SAP": ["sap", "sap fico", "sap mm", "sap sd"],
+    "Banking": ["banking", "loans", "kyc"],
+    # Sales / marketing / customer
+    "Field Sales": ["field sales", "area sales", "territory sales"],
+    "Channel Sales": ["channel sales", "distributor management", "dealer management", "distribution"],
+    "Lead Generation": ["lead generation", "cold calling", "telecalling", "tele calling"],
+    "Key Account Management": ["key account", "account management", "client relationship", "relationship management"],
+    "Retail": ["retail", "fmcg", "merchandising"],
+    "Negotiation": ["negotiation"],
+    "Customer Service": ["customer service", "customer support", "customer care", "call center", "bpo"],
+    "Social Media Marketing": ["social media", "instagram marketing", "facebook ads"],
+    "Content Writing": ["content writing", "copywriting", "blogging", "technical writing"],
+    # Operations / HR / admin
+    "Supply Chain": ["supply chain", "scm", "logistics", "warehouse", "inventory management", "procurement", "purchase"],
+    "Operations": ["operations management", "operations"],
+    "Recruitment": ["recruitment", "talent acquisition", "hiring", "sourcing"],
+    "HR Operations": ["payroll", "onboarding", "employee engagement", "hrms", "human resources"],
+    "Administration": ["office administration", "front office", "data entry"],
+    # Education / healthcare / other
+    "Teaching": ["teaching", "lesson planning", "classroom management", "tutoring"],
+    "Nursing": ["nursing", "patient care", "icu"],
+    "Pharmacy": ["pharmacy", "pharmacovigilance", "clinical research"],
+    "Graphic Design": ["graphic design", "photoshop", "illustrator", "coreldraw", "canva"],
+    "Video Editing": ["video editing", "premiere pro", "after effects"],
 }
 
 # Aliases that are also ordinary English words / short tokens: only count them
 # when written in the casing a resume would use for the technology.
 _CASE_SENSITIVE = {"node": "Node", "rust": "Rust", "swift": "Swift", "spring": "Spring",
                    "rails": "Rails", "ts": "TS", "ml": "ML", "qa": "QA", "rest": "REST",
-                   "ios": "iOS", "go lang": "Go lang", "lambda": "Lambda", "r programming": "R programming"}
+                   "ios": "iOS", "go lang": "Go lang", "lambda": "Lambda", "r programming": "R programming",
+                   "sap": "SAP", "plc": "PLC", "qc": "QC", "p6": "P6", "5s": "5S", "fea": "FEA", "ppc": "PPC",
+                   "gst": "GST", "tds": "TDS", "kyc": "KYC", "dsa": "DSA", "bim": "BIM", "scm": "SCM",
+                   "bpo": "BPO", "icu": "ICU", "mern": "MERN", "staad": "STAAD", "cnc": "CNC"}
 
 
 @lru_cache(maxsize=1)
@@ -161,3 +219,22 @@ PRIMARY_SKILLS: tuple[frozenset[str], ...] = (
     frozenset({"Machine Learning", "Data Analysis", "Product Management", "UI/UX Design", "Digital Marketing",
                "AWS", "Azure", "Kubernetes", "Tableau", "Power BI", "Finance", "Sales"}),
 )
+
+# Soft / ubiquitous skills: shown to the user but weighted lower in matching and
+# never used as search keywords.
+GENERIC_SKILLS = frozenset({
+    "Communication", "Leadership", "Agile", "Git", "Excel", "Linux", "Microsoft Office", "Negotiation",
+    "Operations", "Maintenance", "Quality Control", "Testing", "Administration", "Construction Management",
+})
+
+# Words that end a job title ("Site Engineer", "Area Sales Executive").
+ROLE_NOUNS = frozenset("""
+engineer developer manager executive officer analyst consultant designer architect accountant teacher
+lecturer professor nurse technician specialist associate administrator coordinator supervisor scientist
+representative assistant director head lead programmer tester intern trainee clerk operator agent advisor
+auditor pharmacist doctor chef writer editor recruiter planner surveyor foreman electrician mechanic
+cashier receptionist marketer strategist founder partner controller buyer merchandiser counsellor
+counselor therapist physician pilot steward president vp ceo cto cfo coo owner apprentice fellow
+researcher instructor trainer tutor draftsman draughtsman inspector estimator machinist welder fitter
+storekeeper telecaller banker underwriter actuary economist statistician lawyer advocate paralegal
+""".split())

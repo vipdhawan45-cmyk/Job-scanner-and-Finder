@@ -17,7 +17,11 @@ Browser (HTML/CSS/JS)
 
 ## Features
 
-- **Resume parsing:** reads PDF, DOCX and TXT files, or pasted text. It extracts about 100 skills (with aliases such as `k8s`→Kubernetes and `react.js`→React), past job titles, years of experience (stated, or worked out from date ranges with overlaps merged), level, degrees and location.
+- **Resume parsing:** reads PDF, DOCX, TXT, photos (JPG/PNG) or pasted text. Scanned PDFs and photos are read with Tesseract OCR. PDFs use PDFium (pypdfium2), which is fast and light on memory even for design-heavy Canva-style resumes.
+  - Splits the resume into sections (experience, education, skills…).
+  - Extracts about 150 skills across tech, civil, mechanical, accounting, sales, HR, operations, teaching and healthcare (with aliases such as `k8s`→Kubernetes and `BOQ`→Quantity Surveying), plus anything listed in the resume's own Skills section.
+  - Finds job titles in any field ("Site Engineer", "Area Sales Executive") from the experience lines.
+  - Works out years of experience from work history only. Education and internship dates are ignored, and Indian date formats such as `06/2020` and `Aug'21 – till date` are understood.
 - **Editable profile:** you can add or remove skills and correct your years of experience before searching.
 - **Multi-source search:** searches every source at the same time with timeouts. If one source fails, the others still return results. Duplicates are merged, keeping the copy with the longest description. Results are cached for 15 minutes.
 - **Explainable ranking (0–100):**
@@ -76,7 +80,7 @@ The app runs as one container that serves both the API and the frontend.
 | LinkedIn guest scraper | `ENABLE_LINKEDIN_SCRAPER=true` | Scrapes LinkedIn's public job-search pages. **This is against LinkedIn's User Agreement.** LinkedIn quickly blocks cloud-server IPs (you get HTTP 429/999 errors), so use it only for personal experiments. |
 | Adzuna | Free `ADZUNA_APP_ID` / `ADZUNA_APP_KEY`; set `ADZUNA_COUNTRY` | A large legitimate aggregator covering India, the UK, the US, the EU and more. |
 
-The free sources (Remotive, RemoteOK, Arbeitnow) work without keys but mostly list remote and EU jobs. If every live source fails, the app shows sample listings and clearly labels them.
+The free sources (Remotive, RemoteOK, Arbeitnow) work without keys but mostly list **remote tech and Europe jobs**. For candidates in India, or outside tech, you need JSearch or Adzuna to get useful results; the app shows a notice when neither is configured. Matches scoring below `MIN_SCORE` (default 30) are hidden.
 
 ## Better semantic matching (optional)
 

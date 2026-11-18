@@ -8,11 +8,26 @@ from ..models import Job, format_salary
 from .base import USER_AGENT, JobSource
 
 
-def _matches(text: str, keywords: str) -> bool:
-    """True if any meaningful keyword appears in text (for sources without server-side search)."""
-    words = [w for w in re.findall(r"[a-z0-9+#.]+", keywords.lower()) if len(w) > 1]
-    t = text.lower()
-    return not words or any(w in t for w in words)
+_GENERIC_WORDS = {"engineer", "developer", "manager", "executive", "officer", "analyst", "specialist",
+                  "associate", "assistant", "senior", "junior", "lead", "jobs", "job", "remote", "and", "the", "of"}
+
+
+def _words(keywords: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z0-9+#.]+", keywords.lower()) if len(w) > 1]
+
+
+def _matches(title: str, body: str, keywords: str) -> bool:
+    """For sources without server-side search: every specific keyword must appear as a word
+    (so "site engineer" doesn't match every engineering job), role words must be in the title."""
+    words = _words(keywords)
+    if not words:
+        return True
+    specific = [w for w in words if w not in _GENERIC_WORDS]
+    has = lambda w, t: re.search(rf"(?<![a-z0-9]){re.escape(w)}(?![a-z0-9])", t) is not None  # noqa: E731
+    title_l, text_l = title.lower(), f"{title} {body}".lower()
+    if specific:
+        return all(has(w, text_l) for w in specific) and any(has(w, title_l) for w in words)
+    return any(has(w, title_l) for w in words)
 
 
 class RemotiveSource(JobSource):
@@ -53,8 +68,8 @@ class ArbeitnowSource(JobSource):
             r = await client.get("https://www.arbeitnow.com/api/job-board-api", params={"page": page})
             r.raise_for_status()
             for j in r.json().get("data", []):
-                text = f"{j.get('title', '')} {' '.join(j.get('tags') or [])} {j.get('description', '')[:1500]}"
-                if not _matches(text, query.keywords):
+                body = f"{' '.join(j.get('tags') or [])} {j.get('description', '')[:2000]}"
+                if not _matches(j.get("title", ""), body, query.keywords):
                     continue
                 created = j.get("created_at")
                 jobs.append(
@@ -79,14 +94,16 @@ class RemoteOKSource(JobSource):
     description = "Remote tech jobs (remoteok.com public API)."
 
     async def search(self, client, query):
-        # RemoteOK filters by a single tag; use the most specific keyword.
-        words = [w for w in re.findall(r"[a-z0-9+#.]+", query.keywords.lower()) if len(w) > 2]
-        params = {"tag": words[0]} if words else {}
+        # RemoteOK filters by a single tag; use the most specific keyword, then filter locally.
+        specific = [w for w in _words(query.keywords) if w not in _GENERIC_WORDS and len(w) > 2]
+        params = {"tag": max(specific, key=len)} if specific else {}
         r = await client.get("https://remoteok.com/api", params=params, headers={"User-Agent": USER_AGENT})
         r.raise_for_status()
         jobs = []
         for j in r.json():
             if not isinstance(j, dict) or "position" not in j:  # first item is a legal notice
+                continue
+            if not _matches(j.get("position", ""), " ".join(j.get("tags") or []), query.keywords):
                 continue
             jobs.append(
                 Job(

@@ -24,7 +24,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from .config import settings
 from .models import Job
 from .resume_parser import Profile
-from .skills import PRIMARY_SKILLS, extract_skills
+from .skills import GENERIC_SKILLS, PRIMARY_SKILLS, ROLE_NOUNS, SKILL_ALIASES, extract_skills
 
 log = logging.getLogger("jobfinder.matcher")
 
@@ -86,19 +86,26 @@ def experience_fit(candidate: float, required: int | None) -> float:
     return max(0.0, 1 - gap / 4)
 
 
+def _weighted_overlap(a: set[str], b: set[str]) -> float:
+    w = lambda t: 0.35 if t in ROLE_NOUNS else 1.0  # noqa: E731
+    union = sum(w(t) for t in a | b)
+    return sum(w(t) for t in a & b) / union if union else 0.0
+
+
 def title_fit(job_title: str, profile: Profile, skills: list[str]) -> float:
     jt = _tokens(job_title)
     if not jt:
         return 0.0
-    best = 0.0
-    for t in profile.titles:
-        tt = _tokens(t)
-        if tt:
-            best = max(best, len(jt & tt) / len(jt | tt))
-    # Core skills in the title ("Python Developer", "React Engineer") are a strong signal.
+    best = max((_weighted_overlap(jt, _tokens(t)) for t in profile.titles), default=0.0)
+    # Core specific skills in the title ("Python Developer", "AutoCAD Draftsman") are a strong signal.
     title_lower = job_title.lower()
-    skill_hits = sum(1 for s in skills[:8] if s.lower() in title_lower)
-    return min(1.0, best * 1.4 + 0.3 * skill_hits)
+    specific = [s for s in skills if s not in GENERIC_SKILLS][:8]
+    skill_hits = sum(1 for s in specific if _has_phrase(title_lower, s.lower()))
+    return min(1.0, best * 1.3 + 0.3 * skill_hits)
+
+
+def _has_phrase(text: str, phrase: str) -> bool:
+    return re.search(rf"(?<![\w+#]){re.escape(phrase)}(?![\w+#])", text) is not None
 
 
 @lru_cache(maxsize=1)
@@ -130,6 +137,8 @@ def semantic_scores(resume_text: str, docs: list[str]) -> np.ndarray:
 def rank_jobs(profile: Profile, jobs: list[Job], skills: list[str] | None = None) -> list[MatchResult]:
     skills = skills if skills is not None else profile.skills
     have = {s.lower() for s in skills}
+    taxonomy_names = {k.lower() for k in SKILL_ALIASES}
+    custom = [s for s in skills if s.lower() not in taxonomy_names]
     docs = [f"{j.title}. {j.title}. {' '.join(j.tags)}. {j.description}" for j in jobs]
     resume_doc = f"{' '.join(profile.titles)} {' '.join(skills)} {profile.text}"
     sem = semantic_scores(resume_doc, docs)
@@ -137,16 +146,28 @@ def rank_jobs(profile: Profile, jobs: list[Job], skills: list[str] | None = None
     results: list[MatchResult] = []
     for job, doc, s_sem in zip(jobs, docs, sem):
         # Strip the company name so e.g. "Bluepeak Analytics" doesn't read as a skill.
-        job_skills = extract_skills(doc.replace(job.company, " ") if job.company else doc)
+        clean = doc.replace(job.company, " ") if job.company else doc
+        job_skills = extract_skills(clean)
+        clean_lower = clean.lower()
+        # Skills the candidate listed that aren't in our taxonomy ("Bar Bending Schedule") still count.
+        job_skills += [c for c in custom if c not in job_skills and _has_phrase(clean_lower, c.lower())]
         title_lower = job.title.lower()
-        # Skills named in the title or tags are the core requirements -> double weight.
-        weights = {s: (2.0 if s.lower() in title_lower or s in job.tags else 1.0) for s in job_skills}
+        tags_lower = {t.lower() for t in job.tags}
+
+        def weight(sk: str) -> float:
+            w = 2.0 if _has_phrase(title_lower, sk.lower()) or sk.lower() in tags_lower else 1.0
+            return w * (0.5 if sk in GENERIC_SKILLS else 1.0)
+
+        weights = {sk: weight(sk) for sk in job_skills}
         matched = [s for s in job_skills if s.lower() in have]
-        missing = [s for s in job_skills if s.lower() not in have]
+        # Soft skills are rarely worth listing as "missing".
+        missing = [s for s in job_skills if s.lower() not in have and s not in GENERIC_SKILLS]
         if weights:
             s_skill = sum(weights[s] for s in matched) / sum(weights.values())
             # Small boost for postings that use many of the candidate's skills.
-            s_skill = min(1.0, s_skill + 0.03 * max(0, len(matched) - 3))
+            s_skill = min(1.0, s_skill + 0.03 * max(0, len([m for m in matched if m not in GENERIC_SKILLS]) - 3))
+            if all(m in GENERIC_SKILLS for m in matched):
+                s_skill *= 0.5  # sharing only "Excel" / "Communication" is weak evidence
         else:
             s_skill = float(s_sem) * 0.8
 
@@ -162,7 +183,7 @@ def rank_jobs(profile: Profile, jobs: list[Job], skills: list[str] | None = None
 
         reasons = []
         if job_skills:
-            reasons.append(f"You have {len(matched)} of {len(job_skills)} skills this role mentions")
+            reasons.append(f"You have {len(matched)} of {len(job_skills)} skills this posting mentions")
         if s_title >= 0.5:
             reasons.append("Job title closely matches your background")
         if req is not None:
@@ -181,7 +202,8 @@ def rank_jobs(profile: Profile, jobs: list[Job], skills: list[str] | None = None
 
 def filter_jobs(jobs: list[Job], location: str = "", remote_only: bool = False) -> list[Job]:
     out = []
-    loc_terms = [t for t in re.split(r"[,\s]+", location.lower()) if len(t) > 2]
+    loc_terms = [t for t in re.split(r"[,\s]+", location.lower()) if len(t) > 2 and t not in {"india", "usa", "the"}]
+    loc_terms += [CITY_ALIASES[t] for t in loc_terms if t in CITY_ALIASES]
     for j in jobs:
         if remote_only and not j.remote:
             continue
@@ -191,19 +213,33 @@ def filter_jobs(jobs: list[Job], location: str = "", remote_only: bool = False) 
     return out
 
 
+CITY_ALIASES = {"bengaluru": "bangalore", "bangalore": "bengaluru", "gurgaon": "gurugram", "gurugram": "gurgaon",
+                "mumbai": "bombay", "bombay": "mumbai", "mysore": "mysuru", "mysuru": "mysore",
+                "kolkata": "calcutta", "chennai": "madras", "vizag": "visakhapatnam"}
+_STRIP_FOR_SEARCH = re.compile(r"\b(senior|sr\.?|junior|jr\.?|trainee|intern|apprentice|i{1,3}|area|deputy)\b", re.I)
+
+
+def _search_title(title: str) -> str:
+    t = re.sub(r"\s+", " ", _STRIP_FOR_SEARCH.sub(" ", title)).strip()
+    t = re.sub(r"\bdevelopment$", "developer", t)  # "web development intern" -> "web developer"
+    return t if len(t.split()) >= 2 or t in ROLE_NOUNS - {"engineer", "manager", "executive", "officer"} else ""
+
+
 def build_queries(profile: Profile, skills: list[str], keywords: str = "") -> list[str]:
-    """Pick up to 3 search phrases from the profile for the job sources."""
+    """Pick up to 3 search phrases (job titles first, then a skill-based one)."""
     if keywords.strip():
         return [keywords.strip()]
     queries: list[str] = []
-    for t in profile.titles[:2]:
-        queries.append(t)
-    primary = next(([s for s in skills if s in tier] for tier in PRIMARY_SKILLS if any(s in tier for s in skills)), [])
-    if primary:
-        role = "developer" if not profile.titles else profile.titles[0].split()[-1]
-        queries.append(f"{primary[0]} {role}")
-    if not queries:
-        queries.append("software developer")
+    for q in (_search_title(t) for t in profile.titles[:4]):
+        if q and q not in queries and len(queries) < 2:
+            queries.append(q)
+    specific = [s for s in skills if s not in GENERIC_SKILLS]
+    tech = next((s for s in specific if s in PRIMARY_SKILLS[0]), None)
+    if tech:
+        role = queries[0].split()[-1] if queries else "developer"
+        queries.append(f"{tech} {role}")
+    elif not queries and specific:
+        queries.append(specific[0])  # e.g. "AutoCAD", "Tally"
     seen, unique = set(), []
     for q in queries:
         if q.lower() not in seen:
